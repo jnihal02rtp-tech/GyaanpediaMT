@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GYAANPEDIA TEST GENERATOR (Cloud Secure)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Firebase Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f3f6fb; }
+    .tab-active { background: #2563eb; color: #fff; }
+    .fade-in { animation: fadeIn 0.25s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    #upiQrBox img, #upiQrBox canvas { margin: 0 auto; border-radius: 10px; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800 pb-16">
+
+  <!-- TOP NAVBAR -->
+  <header class="bg-gradient-to-r from-blue-700 to-indigo-700 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2.5 cursor-pointer" onclick="showView('studentHome')">
+        <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center font-extrabold text-lg">G</div>
+        <div>
+          <h1 class="font-bold text-base sm:text-lg leading-tight tracking-wide">GYAANPEDIA</h1>
+          <p id="cloudBadge" class="text-[10px] text-blue-100 leading-none">Checking Cloud...</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="openStudentLogin()" id="btnStudentProfile" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/15 hover:bg-white/25 text-white">
+          👤 Login
+        </button>
+        <button onclick="showView('studentHome')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-blue-700 shadow-sm">
+          👨‍🎓 Tests
+        </button>
+        <button onclick="openTeacherAuth()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600/80 hover:bg-blue-500 text-white border border-blue-400/40">
+          👨‍🏫 Teacher
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden bg-slate-900 text-white text-sm px-5 py-2.5 rounded-full shadow-lg text-center max-w-xs sm:max-w-md"></div>
+
+  <main class="max-w-4xl mx-auto px-4 pt-5">
+
+    <!-- ==================== 1. STUDENT HOME ==================== -->
+    <section id="view-studentHome" class="fade-in">
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">Available Mock Tests 📝</h2>
+          <p id="welcomeSubtext" class="text-sm text-slate-500">Apna test chunein aur online exam shuru karein.</p>
+        </div>
+        <div class="flex gap-2 text-xs">
+          <button onclick="filterTests('all')" class="px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 font-semibold">All</button>
+          <button onclick="filterTests('free')" class="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">Free</button>
+          <button onclick="filterTests('paid')" class="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 font-semibold">Paid</button>
+        </div>
+      </div>
+
+      <div id="studentTestList" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="col-span-2 text-center py-10 text-slate-400 text-sm">Tests load ho rahe hain...</div>
+      </div>
+    </section>
+
+    <!-- ==================== 2. CBT EXAM VIEW ==================== -->
+    <section id="view-exam" class="hidden fade-in">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 id="examTitle" class="font-bold text-slate-800 text-base"></h3>
+          <p id="examProgress" class="text-xs text-slate-500"></p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleExamLang()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            🌐 Hindi / Eng
+          </button>
+          <div id="examTimer" class="px-3 py-1.5 rounded-lg text-sm font-bold bg-rose-50 text-rose-600 border border-rose-200">
+            00:00
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+        <p id="questionText" class="text-base sm:text-lg font-semibold text-slate-800 mb-4 leading-relaxed"></p>
+        <div id="optionsContainer" class="space-y-2.5"></div>
+      </div>
+
+      <div class="flex items-center justify-between gap-3">
+        <button onclick="prevQuestion()" class="px-4 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-sm">← Prev</button>
+        <button onclick="submitExam()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm">Submit Test ✅</button>
+        <button onclick="nextQuestion()" class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm">Next →</button>
+      </div>
+    </section>
+
+    <!-- ==================== 3. EXAM RESULT ==================== -->
+    <section id="view-result" class="hidden fade-in">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-center mb-5">
+        <div class="text-4xl mb-2">🏆</div>
+        <h2 class="text-2xl font-extrabold text-slate-800">Test Completed!</h2>
+        <p id="resultTestName" class="text-sm text-slate-500 mb-4"></p>
+        <div class="grid grid-cols-3 gap-3 max-w-md mx-auto my-4">
+          <div class="p-3 rounded-xl bg-blue-50">
+            <div id="resScore" class="text-xl font-extrabold text-blue-700">0/0</div>
+            <div class="text-xs text-slate-500">Score</div>
+          </div>
+          <div class="p-3 rounded-xl bg-emerald-50">
+            <div id="resCorrect" class="text-xl font-extrabold text-emerald-600">0</div>
+            <div class="text-xs text-slate-500">Correct</div>
+          </div>
+          <div class="p-3 rounded-xl bg-rose-50">
+            <div id="resWrong" class="text-xl font-extrabold text-rose-600">0</div>
+            <div class="text-xs text-slate-500">Wrong</div>
+          </div>
+        </div>
+        <button onclick="showView('studentHome')" class="mt-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-sm">Back to All Tests</button>
+      </div>
+      <div id="resultSolutions" class="space-y-3"></div>
+    </section>
+
+    <!-- ==================== 4. TEACHER DASHBOARD ==================== -->
+    <section id="view-teacher" class="hidden fade-in">
+      <div class="flex flex-wrap gap-2 mb-5 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+        <button onclick="switchTeacherTab('create')" id="ttab-create" class="flex-1 min-w-[110px] py-2 px-3 rounded-xl text-xs sm:text-sm font-bold tab-active">✨ Create Test</button>
+        <button onclick="switchTeacherTab('payment')" id="ttab-payment" class="flex-1 min-w-[110px] py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100">💳 Payment Setup</button>
+        <button onclick="switchTeacherTab('approvals')" id="ttab-approvals" class="flex-1 min-w-[110px] py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100">✅ Orders (<span id="pendingCount">0</span>)</button>
+        <button onclick="switchTeacherTab('settings')" id="ttab-settings" class="flex-1 min-w-[110px] py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100">⚙️ API & PIN</button>
+      </div>
+
+      <!-- TAB 1: CREATE TEST -->
+      <div id="tpanel-create" class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
+        <h3 class="text-lg font-bold text-slate-800">AI Bilingual Test Generator (Live Cloud Sync)</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Test Title</label>
+            <input id="newTestTitle" type="text" placeholder="e.g., CG Shikshak Bharti Maths Mock 1" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Topic / Syllabus</label>
+            <input id="newTestTopic" type="text" placeholder="e.g., Percentage, Profit & Loss, Ratio" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm" />
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-dashed border-slate-300">
+          <label class="block text-xs font-bold text-slate-700 mb-1">📄 Optional: Upload Syllabus / PYQ PDF</label>
+          <input id="pdfUpload" type="file" accept="application/pdf" class="text-xs text-slate-600 w-full" />
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Questions</label>
+            <input id="newTestCount" type="number" value="10" min="3" max="50" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Time (Min)</label>
+            <input id="newTestTime" type="number" value="15" min="2" max="180" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Test Type</label>
+            <select id="newTestPaid" onchange="togglePriceInput()" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm">
+              <option value="free">Free</option>
+              <option value="paid">Paid (₹)</option>
+            </select>
+          </div>
+          <div id="priceInputBox" class="hidden">
+            <label class="block text-xs font-bold text-slate-600 mb-1">Price (₹)</label>
+            <input id="newTestPrice" type="number" value="49" min="1" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm" />
+          </div>
+        </div>
+
+        <button id="btnGenerateAI" onclick="generateTestWithAI()" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-sm">
+          🚀 Generate & Publish Live to All Students
+        </button>
+
+        <div class="pt-4 border-t border-slate-100">
+          <h4 class="font-bold text-sm text-slate-700 mb-3">Published Tests (Live)</h4>
+          <div id="teacherTestList" class="space-y-2.5"></div>
+        </div>
+      </div>
+
+      <!-- TAB 2: PAYMENT SETUP -->
+      <div id="tpanel-payment" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-5">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800">💳 Teacher Self-Setup Payment Gateway</h3>
+          <p class="text-xs text-slate-500">Apni UPI ID ya Razorpay Link save karein — sabhi students ke app mein turant update ho jayega.</p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-sm text-emerald-900">1. Direct UPI & QR Code (0% Fee — Secure UTR Verify)</span>
+            <input type="checkbox" id="payEnableUpi" class="w-4 h-4 accent-emerald-600" checked />
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Teacher UPI ID *</label>
+              <input id="payUpiId" type="text" placeholder="e.g., yourname@ybl" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Teacher / Academy Name *</label>
+              <input id="payMerchantName" type="text" placeholder="e.g., Gyaanpedia Classes" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Teacher WhatsApp Number (91 ke sath, bina + ke)</label>
+            <input id="payWhatsapp" type="text" placeholder="e.g., 919876543210" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm" />
+          </div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-blue-50/70 border border-blue-200 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-sm text-blue-900">2. Razorpay / Cashfree Payment Page URL (Optional)</span>
+            <input type="checkbox" id="payEnableGateway" class="w-4 h-4 accent-blue-600" />
+          </div>
+          <input id="payGatewayUrl" type="url" placeholder="https://rzp.io/l/your-payment-link" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm" />
+        </div>
+
+        <button onclick="savePaymentSettings()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm">
+          💾 Save Payment Settings to Cloud
+        </button>
+      </div>
+
+      <!-- TAB 3: LIVE ORDERS APPROVAL -->
+      <div id="tpanel-approvals" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-slate-800">🔒 Secure Payment Approvals</h3>
+            <p class="text-xs text-slate-500">Approve karte hi sirf usi student ke mobile number par test unlock hoga.</p>
+          </div>
+          <button onclick="loadOrders()" class="px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-bold">🔄 Refresh</button>
+        </div>
+        <div id="ordersList" class="space-y-3"></div>
+      </div>
+
+      <!-- TAB 4: API & PIN -->
+      <div id="tpanel-settings" class="hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
+        <h3 class="text-lg font-bold text-slate-800">⚙️ Gemini API & Teacher PIN</h3>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Gemini API Key (Sirf aapke device mein safe rahegi)</label>
+          <input id="cfgApiKey" type="password" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Gemini Model</label>
+          <select id="cfgModel" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm">
+            <option value="gemini-2.5-flash">gemini-2.5-flash (Recommended)</option>
+            <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Teacher PIN (Default: 1234)</label>
+          <input id="cfgPin" type="text" maxlength="6" placeholder="1234" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm" />
+        </div>
+        <button onclick="saveCoreSettings()" class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm">Save Settings</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== STUDENT LOGIN MODAL ==================== -->
+  <div id="modalStudentLogin" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-xs shadow-xl">
+      <h3 class="text-lg font-bold text-slate-800 mb-1">👨‍🎓 Student Login</h3>
+      <p class="text-xs text-slate-500 mb-4">Aapke paid tests aapke mobile number se secure rahenge.</p>
+      <input id="loginStuName" type="text" placeholder="Aapka Pura Naam" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm mb-3" />
+      <input id="loginStuPhone" type="tel" maxlength="10" placeholder="10-Digit Mobile Number" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm mb-4" />
+      <button onclick="saveStudentLogin()" class="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm">Continue</button>
+    </div>
+  </div>
+
+  <!-- ==================== TEACHER PIN MODAL ==================== -->
+  <div id="modalPin" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-xs shadow-xl text-center">
+      <h3 class="text-lg font-bold text-slate-800 mb-1">🔐 Teacher Login</h3>
+      <p class="text-xs text-slate-500 mb-4">Default PIN: <b>1234</b></p>
+      <input id="inputTeacherPin" type="password" placeholder="Enter PIN" class="w-full text-center text-lg tracking-widest px-4 py-2.5 rounded-xl border border-slate-300 mb-4" />
+      <div class="flex gap-2">
+        <button onclick="closeModal('modalPin')" class="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm">Cancel</button>
+        <button onclick="verifyTeacherPin()" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== STUDENT PAYMENT MODAL ==================== -->
+  <div id="modalPayment" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl my-auto space-y-4">
+      <div class="flex items-start justify-between border-b pb-3">
+        <div>
+          <span class="text-[11px] font-bold uppercase text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Secure Payment</span>
+          <h3 id="payModalTitle" class="font-bold text-slate-800 text-base mt-1"></h3>
+        </div>
+        <button onclick="closeModal('modalPayment')" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="flex items-center justify-between bg-blue-50 px-4 py-3 rounded-xl">
+        <span class="text-sm font-semibold text-slate-700">Payable Amount</span>
+        <span id="payModalAmount" class="text-xl font-extrabold text-blue-700">₹0</span>
+      </div>
+
+      <!-- UPI + QR -->
+      <div id="payBoxUpi" class="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/40 text-center space-y-2.5">
+        <p class="text-xs font-bold text-emerald-800">Scan QR ya Direct UPI App se Pay karein</p>
+        <div id="upiQrBox" class="py-1"></div>
+        <p id="upiIdDisplay" class="text-xs font-mono text-slate-600"></p>
+        <a id="btnOpenUpiApp" href="#" class="block w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm">
+          📱 Pay via PhonePe / GPay / Paytm
+        </a>
+      </div>
+
+      <!-- Gateway Link -->
+      <div id="payBoxGateway" class="hidden">
+        <a id="btnOpenGateway" href="#" target="_blank" class="block text-center w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-sm">
+          💳 Pay via Card / UPI / Netbanking
+        </a>
+      </div>
+
+      <!-- UTR Submission -->
+      <div class="pt-3 border-t space-y-2">
+        <p class="text-xs font-bold text-slate-700">Payment ke baad 12-Digit UTR / Transaction ID daalein:</p>
+        <div class="flex gap-2">
+          <input id="stuUtrInput" type="text" placeholder="e.g., 432918273645" class="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-mono" />
+          <button onclick="submitUtrPayment()" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold">Submit UTR</button>
+        </div>
+        <p class="text-[11px] text-slate-400">🔒 Duplicate UTR allowed nahi hai. Verify hote hi aapke number par test unlock ho jayega.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== JAVASCRIPT + FIREBASE LOGIC ==================== -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDgH7PLlmHKSdipgbN76LBHt8msFDIb3IE",
+      authDomain: "gyaanpedia-31695.firebaseapp.com",
+      projectId: "gyaanpedia-31695",
+      storageBucket: "gyaanpedia-31695.firebasestorage.app",
+      messagingSenderId: "628419445094",
+      appId: "1:628419445094:web:ba122708eb9d35b05648a7"
+    };
+
+    let db = null;
+    let isCloudActive = false;
+
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+      isCloudActive = true;
+      document.getElementById("cloudBadge").textContent = "🟢 Live Cloud Sync";
+    } catch (e) {
+      document.getElementById("cloudBadge").textContent = "🟡 Local Mode";
+    }
+
+    let studentUser = JSON.parse(localStorage.getItem("gp_student")) || null;
+    let settings = JSON.parse(localStorage.getItem("gp_settings")) || { apiKey: "", model: "gemini-2.5-flash", pin: "1234" };
+    let paymentCfg = JSON.parse(localStorage.getItem("gp_payment")) || {
+      enableUpi: true, upiId: "demo@upi", merchantName: "Gyaanpedia Classes", whatsapp: "", enableGateway: false, gatewayUrl: ""
+    };
+    let tests = JSON.parse(localStorage.getItem("gp_tests")) || [
+      {
+        id: "demo-free-1",
+        title: "CG Shikshak Bharti - Maths Demo (Free)",
+        time: 10, isPaid: false, price: 0,
+        questions: [
+          {
+            q_en: "If 20% of a number is 40, what is the number?",
+            q_hi: "यदि किसी संख्या का 20% बराबर 40 है, तो वह संख्या क्या है?",
+            options_en: ["100", "150", "200", "250"],
+            options_hi: ["100", "150", "200", "250"],
+            ans: 2,
+            exp_en: "20% of x = 40 => x = 200.",
+            exp_hi: "x का 20% = 40 => x = 200।"
+          }
+        ]
+      }
+    ];
+    let myUnlockedIds = [];
+    let orders = [];
+    let currentFilter = "all";
+    let activePayTestId = null;
+    let activeExam = null, examLang = "hi", examIndex = 0, userAnswers = [], timerInterval = null, secondsLeft = 0;
+
+    window.onload = async () => {
+      updateStudentHeader();
+      await syncAllData();
+      loadSettingsIntoUI();
+    };
+
+    async function syncAllData() {
+      if (isCloudActive) {
+        try {
+          const pDoc = await db.collection("config").doc("payment").get();
+          if (pDoc.exists) {
+            paymentCfg = pDoc.data();
+            localStorage.setItem("gp_payment", JSON.stringify(paymentCfg));
+          }
+          const tSnap = await db.collection("tests").orderBy("createdAt", "desc").get();
+          if (!tSnap.empty) {
+            tests = tSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          }
+          if (studentUser?.phone) {
+            const uSnap = await db.collection("unlocks").where("phone", "==", studentUser.phone).get();
+            myUnlockedIds = uSnap.docs.map(d => d.data().testId);
+          }
+        } catch (err) {
+          console.error("Cloud sync error:", err);
+        }
+      } else {
+        myUnlockedIds = JSON.parse(localStorage.getItem("gp_unlocked_" + (studentUser?.phone || "guest"))) || [];
+      }
+      renderStudentTests();
+    }
+
+    function openStudentLogin() {
+      document.getElementById("loginStuName").value = studentUser?.name || "";
+      document.getElementById("loginStuPhone").value = studentUser?.phone || "";
+      document.getElementById("modalStudentLogin").classList.remove("hidden");
+    }
+
+    async function saveStudentLogin() {
+      const name = document.getElementById("loginStuName").value.trim();
+      const phone = document.getElementById("loginStuPhone").value.replace(/\D/g, "");
+      if (!name || phone.length !== 10) return showToast("Sahi Naam aur 10-digit Mobile Number daalein.");
+      studentUser = { name, phone };
+      localStorage.setItem("gp_student", JSON.stringify(studentUser));
+      closeModal("modalStudentLogin");
+      updateStudentHeader();
+      await syncAllData();
+      showToast("Welcome, " + name + "!");
+    }
+
+    function updateStudentHeader() {
+      const btn = document.getElementById("btnStudentProfile");
+      const sub = document.getElementById("welcomeSubtext");
+      if (studentUser) {
+        btn.textContent = "👤 " + studentUser.name.split(" ")[0];
+        sub.textContent = `Logged in as ${studentUser.name} (${studentUser.phone})`;
+      } else {
+        btn.textContent = "👤 Login";
+      }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.remove("hidden");
+      setTimeout(() => t.classList.add("hidden"), 3200);
+    }
+
+    function showView(viewName) {
+      clearInterval(timerInterval);
+      ["studentHome", "exam", "result", "teacher"].forEach(v => document.getElementById("view-" + v).classList.add("hidden"));
+      document.getElementById("view-" + viewName).classList.remove("hidden");
+      if (viewName === "studentHome") syncAllData();
+      if (viewName === "teacher") { renderTeacherTests(); loadOrders(); }
+    }
+
+    function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+    function filterTests(type) { currentFilter = type; renderStudentTests(); }
+
+    function renderStudentTests() {
+      const box = document.getElementById("studentTestList");
+      box.innerHTML = "";
+      const filtered = tests.filter(t => currentFilter === "free" ? !t.isPaid : currentFilter === "paid" ? t.isPaid : true);
+      if (!filtered.length) {
+        box.innerHTML = `<div class="col-span-2 text-center py-10 text-slate-400 text-sm">Koi test available nahi hai.</div>`;
+        return;
+      }
+      filtered.forEach(t => {
+        const isUnlocked = !t.isPaid || myUnlockedIds.includes(t.id);
+        const badge = t.isPaid
+          ? (isUnlocked ? `<span class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-700">Unlocked ✓</span>`
+                        : `<span class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-100 text-amber-700">₹${t.price} Paid</span>`)
+          : `<span class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-blue-100 text-blue-700">FREE</span>`;
+
+        const btnHtml = isUnlocked
+          ? `<button onclick="startExam('${t.id}')" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm">Start Test ▶</button>`
+          : `<button onclick="openPaymentModal('${t.id}')" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm">🔓 Pay ₹${t.price} & Unlock</button>`;
+
+        box.innerHTML += `
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between gap-4">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                ${badge}
+                <span class="text-xs text-slate-400">⏱ ${t.time} Min • ${t.questions.length} Qs</span>
+              </div>
+              <h3 class="font-bold text-slate-800 text-base leading-snug">${t.title}</h3>
+            </div>
+            ${btnHtml}
+          </div>`;
+      });
+    }
+
+    function openPaymentModal(testId) {
+      if (!studentUser) {
+        showToast("Payment se pehle apna Naam & Mobile Number login karein.");
+        return openStudentLogin();
+      }
+      const test = tests.find(t => t.id === testId);
+      if (!test) return;
+      activePayTestId = testId;
+
+      document.getElementById("payModalTitle").textContent = test.title;
+      document.getElementById("payModalAmount").textContent = "₹" + test.price;
+      document.getElementById("stuUtrInput").value = "";
+
+      const upiBox = document.getElementById("payBoxUpi");
+      if (paymentCfg.enableUpi && paymentCfg.upiId) {
+        upiBox.classList.remove("hidden");
+        const upiLink = `upi://pay?pa=${encodeURIComponent(paymentCfg.upiId)}&pn=${encodeURIComponent(paymentCfg.merchantName || "Teacher")}&am=${test.price}&cu=INR&tn=${encodeURIComponent(test.title)}`;
+        document.getElementById("btnOpenUpiApp").href = upiLink;
+        document.getElementById("upiIdDisplay").textContent = "UPI ID: " + paymentCfg.upiId;
+        const qr = document.getElementById("upiQrBox");
+        qr.innerHTML = "";
+        new QRCode(qr, { text: upiLink, width: 150, height: 150 });
+      } else {
+        upiBox.classList.add("hidden");
+      }
+
+      const gwBox = document.getElementById("payBoxGateway");
+      if (paymentCfg.enableGateway && paymentCfg.gatewayUrl) {
+        gwBox.classList.remove("hidden");
+        document.getElementById("btnOpenGateway").href = paymentCfg.gatewayUrl;
+      } else {
+        gwBox.classList.add("hidden");
+      }
+      document.getElementById("modalPayment").classList.remove("hidden");
+    }
+
+    async function submitUtrPayment() {
+      const utr = document.getElementById("stuUtrInput").value.trim();
+      const test = tests.find(t => t.id === activePayTestId);
+      if (utr.length < 8) return showToast("Sahi 12-Digit UTR / Transaction ID daalein.");
+
+      const orderData = {
+        testId: test.id,
+        testTitle: test.title,
+        amount: test.price,
+        name: studentUser.name,
+        phone: studentUser.phone,
+        utr: utr,
+        status: "pending",
+        createdAt: Date.now(),
+        date: new Date().toLocaleString()
+      };
+
+      if (isCloudActive) {
+        const dup = await db.collection("orders").where("utr", "==", utr).get();
+        if (!dup.empty) {
+          return showToast("❌ Yeh UTR number pehle hi use ho chuka hai!");
+        }
+        await db.collection("orders").add(orderData);
+      } else {
+        const localOrders = JSON.parse(localStorage.getItem("gp_orders")) || [];
+        if (localOrders.some(o => o.utr === utr)) return showToast("❌ Duplicate UTR!");
+        localOrders.unshift({ id: "ORD-" + Date.now(), ...orderData });
+        localStorage.setItem("gp_orders", JSON.stringify(localOrders));
+      }
+
+      if (paymentCfg.whatsapp) {
+        const msg = `Hello Sir, maine *${test.title}* (₹${test.price}) ka payment kar diya hai.%0AName: ${studentUser.name}%0APhone: ${studentUser.phone}%0AUTR: ${utr}%0APlease approve kar dein.`;
+        window.open(`https://wa.me/${paymentCfg.whatsapp}?text=${msg}`, "_blank");
+      }
+      showToast("✅ UTR submit ho gaya! Teacher approve karte hi test khul jayega.");
+      closeModal("modalPayment");
+    }
+
+    function startExam(testId) {
+      activeExam = tests.find(t => t.id === testId);
+      if (!activeExam) return;
+      examIndex = 0;
+      userAnswers = new Array(activeExam.questions.length).fill(null);
+      secondsLeft = activeExam.time * 60;
+      document.getElementById("examTitle").textContent = activeExam.title;
+      showView("exam");
+      renderQuestion();
+      startTimer();
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        secondsLeft--;
+        document.getElementById("examTimer").textContent =
+          `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(secondsLeft % 60).padStart(2, "0")}`;
+        if (secondsLeft <= 0) submitExam();
+      }, 1000);
+    }
+
+    function toggleExamLang() { examLang = examLang === "hi" ? "en" : "hi"; renderQuestion(); }
+
+    function renderQuestion() {
+      const q = activeExam.questions[examIndex];
+      document.getElementById("examProgress").textContent = `Question ${examIndex + 1} of ${activeExam.questions.length}`;
+      document.getElementById("questionText").textContent = `Q${examIndex + 1}. ` + (examLang === "hi" ? (q.q_hi || q.q_en) : (q.q_en || q.q_hi));
+      const opts = examLang === "hi" ? (q.options_hi || q.options_en) : (q.options_en || q.options_hi);
+      const container = document.getElementById("optionsContainer");
+      container.innerHTML = "";
+      opts.forEach((opt, idx) => {
+        const sel = userAnswers[examIndex] === idx;
+        container.innerHTML += `
+          <button onclick="selectOption(${idx})" class="w-full text-left px-4 py-3 rounded-xl border text-sm font-medium ${
+            sel ? "bg-blue-50 border-blue-600 text-blue-800 font-bold" : "bg-white border-slate-200 hover:bg-slate-50"
+          }"><span class="inline-block w-6 font-bold">${String.fromCharCode(65 + idx)}.</span> ${opt}</button>`;
+      });
+    }
+
+    function selectOption(idx) { userAnswers[examIndex] = idx; renderQuestion(); }
+    function prevQuestion() { if (examIndex > 0) { examIndex--; renderQuestion(); } }
+    function nextQuestion() { if (examIndex < activeExam.questions.length - 1) { examIndex++; renderQuestion(); } }
+
+    function submitExam() {
+      clearInterval(timerInterval);
+      let correct = 0, wrong = 0;
+      const solBox = document.getElementById("resultSolutions");
+      solBox.innerHTML = "";
+      activeExam.questions.forEach((q, i) => {
+        const ua = userAnswers[i];
+        const isC = ua === q.ans;
+        if (ua !== null) isC ? correct++ : wrong++;
+        const opts = examLang === "hi" ? (q.options_hi || q.options_en) : (q.options_en || q.options_hi);
+        solBox.innerHTML += `
+          <div class="bg-white rounded-2xl p-4 shadow-sm border ${isC ? "border-emerald-200" : "border-rose-200"}">
+            <p class="font-bold text-sm text-slate-800 mb-1">Q${i + 1}. ${examLang === "hi" ? (q.q_hi || q.q_en) : q.q_en}</p>
+            <p class="text-xs text-emerald-700 font-semibold">Correct: ${opts[q.ans]}</p>
+            <p class="text-xs text-slate-500 mt-1">Your Answer: ${ua !== null ? opts[ua] : "Skipped"}</p>
+            <p class="text-xs text-slate-600 mt-2 bg-slate-50 p-2 rounded-lg">💡 ${examLang === "hi" ? (q.exp_hi || q.exp_en || "") : (q.exp_en || "")}</p>
+          </div>`;
+      });
+      document.getElementById("resultTestName").textContent = activeExam.title;
+      document.getElementById("resScore").textContent = `${correct}/${activeExam.questions.length}`;
+      document.getElementById("resCorrect").textContent = correct;
+      document.getElementById("resWrong").textContent = wrong;
+      showView("result");
+    }
+
+    function openTeacherAuth() {
+      document.getElementById("inputTeacherPin").value = "";
+      document.getElementById("modalPin").classList.remove("hidden");
+    }
+
+    function verifyTeacherPin() {
+      if (document.getElementById("inputTeacherPin").value.trim() === settings.pin) {
+        closeModal("modalPin");
+        showView("teacher");
+      } else showToast("❌ Galat PIN!");
+    }
+
+    function switchTeacherTab(tab) {
+      ["create", "payment", "approvals", "settings"].forEach(t => {
+        document.getElementById("tpanel-" + t).classList.add("hidden");
+        const b = document.getElementById("ttab-" + t);
+        b.classList.remove("tab-active");
+        b.classList.add("text-slate-600");
+      });
+      document.getElementById("tpanel-" + tab).classList.remove("hidden");
+      document.getElementById("ttab-" + tab).classList.add("tab-active");
+      document.getElementById("ttab-" + tab).classList.remove("text-slate-600");
+      if (tab === "approvals") loadOrders();
+    }
+
+    function togglePriceInput() {
+      document.getElementById("priceInputBox").classList.toggle("hidden", document.getElementById("newTestPaid").value !== "paid");
+    }
+
+    async function extractPdfText(file) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      let text = "";
+      for (let i = 1; i <= Math.min(pdf.numPages, 8); i++) {
+        const content = await (await pdf.getPage(i)).getTextContent();
+        text += content.items.map(item => item.str).join(" ") + "\n";
+      }
+      return text.slice(0, 12000);
+    }
+
+    async function generateTestWithAI() {
+      if (!settings.apiKey) { switchTeacherTab("settings"); return showToast("Pehle Gemini API Key save karein."); }
+      const title = document.getElementById("newTestTitle").value.trim();
+      const topic = document.getElementById("newTestTopic").value.trim();
+      const count = parseInt(document.getElementById("newTestCount").value) || 10;
+      const time = parseInt(document.getElementById("newTestTime").value) || 15;
+      const isPaid = document.getElementById("newTestPaid").value === "paid";
+      const price = isPaid ? (parseInt(document.getElementById("newTestPrice").value) || 49) : 0;
+      const pdfFile = document.getElementById("pdfUpload").files[0];
+
+      if (!title || (!topic && !pdfFile)) return showToast("Title aur Topic (ya PDF) zaroor daalein.");
+      const btn = document.getElementById("btnGenerateAI");
+      btn.disabled = true; btn.textContent = "⏳ AI Questions bana raha hai...";
+
+      try {
+        let contextText = topic;
+        if (pdfFile) contextText += "\nPDF:\n" + await extractPdfText(pdfFile);
+
+        const prompt = `Generate exactly ${count} exam-level bilingual (English and Hindi) MCQs on: ${contextText}.
+Return ONLY a valid JSON array: [{"q_en":"","q_hi":"","options_en":["","","",""],"options_hi":["","","",""],"ans":0,"exp_en":"","exp_hi":""}]`;
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${settings.model}:generateContent?key=${settings.apiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || "API Error");
+
+        const newTest = { title, time, isPaid, price, questions: JSON.parse(data.candidates[0].content.parts[0].text), createdAt: Date.now() };
+        if (isCloudActive) {
+          const ref = await db.collection("tests").add(newTest);
+          tests.unshift({ id: ref.id, ...newTest });
+        } else {
+          tests.unshift({ id: "test-" + Date.now(), ...newTest });
+          localStorage.setItem("gp_tests", JSON.stringify(tests));
+        }
+        renderTeacherTests();
+        showToast("✅ Test Live Publish ho gaya!");
+        document.getElementById("newTestTitle").value = "";
+        document.getElementById("newTestTopic").value = "";
+      } catch (err) {
+        alert("Error: " + err.message);
+      } finally {
+        btn.disabled = false; btn.textContent = "🚀 Generate & Publish Live to All Students";
+      }
+    }
+
+    function renderTeacherTests() {
+      const box = document.getElementById("teacherTestList");
+      box.innerHTML = "";
+      tests.forEach(t => {
+        box.innerHTML += `
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div>
+              <p class="font-bold text-sm text-slate-800">${t.title}</p>
+              <p class="text-xs text-slate-500">${t.questions.length} Qs • ${t.isPaid ? "Paid ₹" + t.price : "Free"}</p>
+            </div>
+            <button onclick="deleteTest('${t.id}')" class="px-3 py-1.5 rounded-lg bg-rose-100 text-rose-700 text-xs font-bold">Delete</button>
+          </div>`;
+      });
+    }
+
+    async function deleteTest(id) {
+      if (!confirm("Is test ko delete karein?")) return;
+      if (isCloudActive) await db.collection("tests").doc(id).delete();
+      tests = tests.filter(t => t.id !== id);
+      localStorage.setItem("gp_tests", JSON.stringify(tests));
+      renderTeacherTests();
+      showToast("Test deleted.");
+    }
+
+    function loadSettingsIntoUI() {
+      document.getElementById("cfgApiKey").value = settings.apiKey || "";
+      document.getElementById("cfgModel").value = settings.model || "gemini-2.5-flash";
+      document.getElementById("cfgPin").value = settings.pin || "1234";
+      document.getElementById("payEnableUpi").checked = paymentCfg.enableUpi;
+      document.getElementById("payUpiId").value = paymentCfg.upiId || "";
+      document.getElementById("payMerchantName").value = paymentCfg.merchantName || "";
+      document.getElementById("payWhatsapp").value = paymentCfg.whatsapp || "";
+      document.getElementById("payEnableGateway").checked = paymentCfg.enableGateway;
+      document.getElementById("payGatewayUrl").value = paymentCfg.gatewayUrl || "";
+    }
+
+    async function savePaymentSettings() {
+      paymentCfg = {
+        enableUpi: document.getElementById("payEnableUpi").checked,
+        upiId: document.getElementById("payUpiId").value.trim(),
+        merchantName: document.getElementById("payMerchantName").value.trim(),
+        whatsapp: document.getElementById("payWhatsapp").value.trim(),
+        enableGateway: document.getElementById("payEnableGateway").checked,
+        gatewayUrl: document.getElementById("payGatewayUrl").value.trim()
+      };
+      localStorage.setItem("gp_payment", JSON.stringify(paymentCfg));
+      if (isCloudActive) await db.collection("config").doc("payment").set(paymentCfg);
+      showToast("✅ Payment Settings Live Update ho gayi!");
+    }
+
+    function saveCoreSettings() {
+      settings.apiKey = document.getElementById("cfgApiKey").value.trim();
+      settings.model = document.getElementById("cfgModel").value;
+      settings.pin = document.getElementById("cfgPin").value.trim() || "1234";
+      localStorage.setItem("gp_settings", JSON.stringify(settings));
+      showToast("✅ Settings Saved!");
+    }
+
+    async function loadOrders() {
+      if (isCloudActive) {
+        const snap = await db.collection("orders").orderBy("createdAt", "desc").get();
+        orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } else {
+        orders = JSON.parse(localStorage.getItem("gp_orders")) || [];
+      }
+      document.getElementById("pendingCount").textContent = orders.filter(o => o.status === "pending").length;
+      const box = document.getElementById("ordersList");
+      if (!orders.length) { box.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">Abhi koi order nahi hai.</p>`; return; }
+      box.innerHTML = "";
+      orders.forEach(o => {
+        box.innerHTML += `
+          <div class="p-3.5 rounded-xl border ${o.status === "approved" ? "bg-emerald-50/50 border-emerald-200" : "bg-amber-50/50 border-amber-200"} flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <p class="font-bold text-sm text-slate-800">${o.name} (${o.phone}) — ₹${o.amount}</p>
+              <p class="text-xs text-slate-600">${o.testTitle}</p>
+              <p class="text-xs font-mono text-slate-500">UTR: <b>${o.utr}</b> • ${o.date}</p>
+            </div>
+            ${o.status === "pending"
+              ? `<button onclick="approveOrder('${o.id}')" class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">Approve & Unlock ✓</button>`
+              : `<span class="text-xs font-bold text-emerald-700">Approved ✅</span>`}
+          </div>`;
+      });
+    }
+
+    async function approveOrder(orderId) {
+      const ord = orders.find(o => o.id === orderId);
+      if (!ord) return;
+      if (isCloudActive) {
+        await db.collection("orders").doc(orderId).update({ status: "approved" });
+        await db.collection("unlocks").doc(`${ord.phone}_${ord.testId}`).set({
+          phone: ord.phone, testId: ord.testId, unlockedAt: Date.now()
+        });
+      } else {
+        ord.status = "approved";
+        localStorage.setItem("gp_orders", JSON.stringify(orders));
+        const key = "gp_unlocked_" + ord.phone;
+        const arr = JSON.parse(localStorage.getItem(key)) || [];
+        if (!arr.includes(ord.testId)) arr.push(ord.testId);
+        localStorage.setItem(key, JSON.stringify(arr));
+      }
+      loadOrders();
+      showToast(`✅ ${ord.name} (${ord.phone}) ke liye test unlock ho gaya!`);
+    }
+  </script>
+</body>
+</html>
