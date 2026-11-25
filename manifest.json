@@ -1,0 +1,16 @@
+{
+  "name": "GYAANPEDIA MOCK TEST",
+  "short_name": "Gyaanpedia",
+  "start_url": "/GyaanpediaMT/",
+  "display": "standalone",
+  "background_color": "#0a2472",
+  "theme_color": "#0a2472",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
